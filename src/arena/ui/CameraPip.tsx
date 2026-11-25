@@ -2,6 +2,7 @@ import { type RefObject, useEffect, useState } from 'react';
 import type { Sport } from './GameCanvas';
 
 interface Props {
+  hidden?: boolean;
   sport: Sport;
   videoRef: RefObject<HTMLVideoElement | null>;
   canvasRef: RefObject<HTMLCanvasElement | null>;
@@ -44,7 +45,7 @@ export function CameraPip(props: Props) {
   // A tela cheia da calibração vence o minimizado, senão as instruções sumiriam.
   const hidden = minimized && !expanded;
 
-  return <aside className={expanded ? 'cam-pip expanded' : hidden ? 'cam-pip minimized' : 'cam-pip'}>
+  return <aside className={expanded ? 'cam-pip expanded' : hidden ? 'cam-pip minimized' : 'cam-pip'} hidden={props.hidden}>
     {!expanded && <button type="button" className="pip-btn pip-toggle" aria-expanded={!hidden} onClick={() => setMinimized(!minimized)}>{hidden ? 'CÂMERA ▴' : '—'}</button>}
     <div className="cam-feed">
       <video ref={props.videoRef} autoPlay muted playsInline />

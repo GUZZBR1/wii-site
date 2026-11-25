@@ -1,4 +1,4 @@
-import type { HandSnapshot, Point3 } from '../../src/cv/protocol';
+import type { HandSnapshot, Point3 } from '../../src/arena/cv/protocol';
 
 export interface SyntheticHandOptions {
   tipX?: number;

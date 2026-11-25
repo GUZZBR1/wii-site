@@ -1,9 +1,5 @@
 node_modules/
 dist/
-.DS_Store
-*.log
 *.tsbuildinfo
-.vite/
-.vercel/
-public/mediapipe/wasm*/
-.vercel
+.omc/
+public/mediapipe/wasm-*/
