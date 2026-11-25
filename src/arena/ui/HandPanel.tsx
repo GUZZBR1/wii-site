@@ -21,7 +21,10 @@ export function HandPanel({ sourceRef, cameraOn, status, synced, onStart, onClos
       <video ref={previewRef} autoPlay muted playsInline />
       {!cameraOn && <strong>SEM SINAL</strong>}
     </div>
-    <output className="hand-status">{!cameraOn ? status : synced ? 'Mão sincronizada ✓' : 'Mostre a mão para sincronizar…'}</output>
+    <output className="hand-status" data-state={!cameraOn ? 'off' : synced ? 'synced' : 'searching'}>
+      <i aria-hidden="true" />
+      {!cameraOn ? status : synced ? 'Mão sincronizada ✓' : 'Mostre a mão para sincronizar…'}
+    </output>
     <ul className="hand-legend">
       <li><b>Pinça</b> = clicar</li>
       <li><b>Segure o gesto</b> = Fechar/Voltar</li>
