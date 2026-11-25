@@ -25,6 +25,8 @@ export interface HandSnapshot {
   timestampMs: number;
   landmarks: readonly Point3[];
   handedness?: Handedness;
+  /** bitmap.height / bitmap.width; corrige distâncias normalizadas fora do quadrado. */
+  aspectY?: number;
 }
 
 export interface CalibrationProfile {
@@ -102,6 +104,7 @@ export type WorkerReply =
       timestampMs: number;
       landmarks: Point3[];
       handedness?: Handedness;
+      aspectY?: number;
     }
   | { type: 'FALLBACK'; from: 'GPU'; to: 'CPU'; reason: string }
   | { type: 'ERROR'; stage: 'init'; fatal: boolean; message: string }

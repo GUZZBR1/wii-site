@@ -457,12 +457,14 @@ describe('PoseClient capture sessions', () => {
       timestampMs: 20,
       landmarks: visibleHandLandmarks(),
       handedness: 'Left',
+      aspectY: 0.75,
     });
     expect(onHand).toHaveBeenCalledOnce();
     expect(onHand).toHaveBeenCalledWith({
       timestampMs: 20,
       landmarks: visibleHandLandmarks(),
       handedness: 'Left',
+      aspectY: 0.75,
     });
 
     client.dispose();

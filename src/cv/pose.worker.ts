@@ -202,6 +202,7 @@ async function detect(
     return;
   }
 
+  const aspectY = bitmap.height / bitmap.width;
   let complete: (() => void) | undefined;
   let inferenceError: unknown;
   try {
@@ -227,6 +228,7 @@ async function detect(
           timestampMs,
           landmarks: simplify(result.landmarks[0]),
           handedness: handednessOf(result.handedness),
+          aspectY,
         } satisfies WorkerReply);
       };
     }

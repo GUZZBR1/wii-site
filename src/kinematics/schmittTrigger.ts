@@ -16,6 +16,8 @@ export class SchmittTrigger {
     return false;
   }
 
+  resetActive(): void { this.active = false; }
+
   reset(): void { this.active = false; this.lastFire = Number.NEGATIVE_INFINITY; }
   get isActive(): boolean { return this.active; }
 }

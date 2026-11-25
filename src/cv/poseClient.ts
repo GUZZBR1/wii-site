@@ -255,6 +255,7 @@ export class PoseClient {
           timestampMs: message.timestampMs,
           landmarks: message.landmarks,
           handedness: message.handedness,
+          aspectY: message.aspectY,
         });
       }
     };
