@@ -1,0 +1,32 @@
+export type Gait = 'idle' | 'walk' | 'run';
+
+// On the CadenceTracker scale these are about 138 steps/min to start running and 130 to drop back.
+const RUN_ON_SPEED = 0.55;
+const RUN_OFF_SPEED = 0.5;
+
+export function gaitFor(speed01: number, previous: Gait): Gait {
+  if (speed01 <= 0.02) return 'idle';
+  return speed01 >= (previous === 'run' ? RUN_OFF_SPEED : RUN_ON_SPEED) ? 'run' : 'walk';
+}
+
+/** Keyboard pace cycle: stopped → walking → running → stopped. */
+export function nextPace(speed01: number): number {
+  return speed01 === 0 ? 0.3 : speed01 < RUN_ON_SPEED ? 0.8 : 0;
+}
+
+export type PaceOwner = 'camera' | 'keyboard';
+export interface Pace { owner: PaceOwner; speed01: number; cadenceSpm: number }
+
+/** A measured step is the player's body asking to drive the run: it hands pace to the camera. */
+export function applyStep(pace: Pace): Pace {
+  return pace.owner === 'camera' ? pace : { ...pace, owner: 'camera' };
+}
+
+/**
+ * Sprint frames only apply while the camera owns the pace, so a ↓/S pick survives both
+ * standstill frames and the residual positive cadence the tracker keeps reporting for a
+ * while after the last step — ownership moves on real steps, not on decaying measurements.
+ */
+export function applySprint(pace: Pace, event: { speed01: number; cadenceSpm: number }): Pace {
+  return pace.owner === 'camera' ? { ...pace, speed01: event.speed01, cadenceSpm: event.cadenceSpm } : pace;
+}

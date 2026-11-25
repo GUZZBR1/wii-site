@@ -1,0 +1,13 @@
+node_modules/
+dist/
+*.tsbuildinfo
+__pycache__/
+*.pyc
+.venv/
+.DS_Store
+.omc/
+.omx/
+.idea/
+.vscode/
+.env.local
+.env*.local
