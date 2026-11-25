@@ -2,7 +2,7 @@
   "$schema": "https://biomejs.dev/schemas/2.6.8/schema.json",
   "files": {
     "ignoreUnknown": true,
-    "includes": ["**", "!dist", "!node_modules", "!public/mediapipe/wasm*"]
+    "includes": ["**", "!dist", "!node_modules", "!public/mediapipe/wasm*", "!draw-site", "!.omc"]
   },
   "formatter": {
     "enabled": true,

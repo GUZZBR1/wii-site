@@ -2,6 +2,7 @@ import { type RefObject, useEffect, useState } from 'react';
 import type { Sport } from './GameCanvas';
 
 interface Props {
+  hidden: boolean;
   sport: Sport;
   videoRef: RefObject<HTMLVideoElement | null>;
   canvasRef: RefObject<HTMLCanvasElement | null>;
@@ -40,7 +41,7 @@ export function CameraPip(props: Props) {
     return () => window.clearTimeout(timer);
   }, [calibrated]);
 
-  return <aside className={expanded ? 'cam-pip expanded' : 'cam-pip'}>
+  return <aside className={expanded ? 'cam-pip expanded' : 'cam-pip'} hidden={props.hidden}>
     <div className="cam-feed">
       <video ref={props.videoRef} autoPlay muted playsInline />
       <canvas ref={props.canvasRef} />
