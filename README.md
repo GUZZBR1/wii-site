@@ -30,21 +30,21 @@ npm run preview
 npm run lint
 ```
 
-O build copia a variante module do WASM do MediaPipe fixado no lockfile para `public/mediapipe/wasm-<versão>/` e verifica o SHA-256 do modelo Lite local — servido com o hash no nome — antes de compilar. Os ativos de `mediapipe/` e `assets/` são servidos com `Cache-Control: immutable` (ver `vercel.json`).
+O build copia a variante module do WASM do MediaPipe fixado no lockfile para `public/mediapipe/wasm-<versão>/` e verifica o SHA-256 dos modelos locais — servidos com o hash no nome — antes de compilar. Os ativos de `mediapipe/` e `assets/` são servidos com `Cache-Control: immutable` (ver `vercel.json`).
 
 ## Arquitetura
 
-- `src/cv/`: Worker do Pose Landmarker (variante WASM module, `useModule`), cliente de captura com um frame em trânsito que mantém o worker quente entre liga/desliga e carrega os ativos em paralelo à permissão de câmera; calibração.
+- `src/cv/`: Worker de visão com Pose Landmarker e Hand Landmarker (variante WASM module, `useModule`), cliente de captura com um frame em trânsito que mantém o worker quente entre liga/desliga e carrega os ativos em paralelo à permissão de câmera; calibração.
 - `src/kinematics/`: filtro 1-Euro, histerese, gating de confiança e detectores puros.
 - `src/games/`: loop fixo Three.js e cenas arcade desacopladas da câmera.
 - `src/ui/`: canvas do jogo em tela cheia, seletor de modalidade e PiP da câmera.
 - `tests/`: fixtures sintéticas e testes determinísticos dos detectores.
 
-O vídeo é processado no dispositivo e não é enviado ao servidor do jogo. O MediaPipe informa que pode enviar métricas de desempenho e utilização da API ao Google; o aviso aparece no PiP da câmera. O modelo é a variante Lite do Pose Landmarker, hospedada localmente com o app. Consulte [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+O vídeo é processado no dispositivo e não é enviado ao servidor do jogo. O MediaPipe informa que pode enviar métricas de desempenho e utilização da API ao Google. Os modelos Pose Landmarker Lite e Hand Landmarker são hospedados localmente com o app. Consulte [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## Deploy
 
-Com o Vercel CLI autenticado, execute `npx vercel --prod`. O projeto usa `dist/` como saída estática; a URL HTTPS resultante permite o acesso à webcam sem instalação. O comando de build verifica a versão e o SHA-256 do modelo e publica também os arquivos WASM locais.
+Com o Vercel CLI autenticado, execute `npx vercel --prod`. O projeto usa `dist/` como saída estática; a URL HTTPS resultante permite o acesso à webcam sem instalação. O comando de build verifica a versão e o SHA-256 dos modelos e publica também os arquivos WASM locais.
 
 ## Controles
 

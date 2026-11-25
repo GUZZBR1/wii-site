@@ -1,5 +1,7 @@
 export type Hand = 'left' | 'right';
 export type Delegate = 'GPU' | 'CPU';
+export type VisionMode = 'pose' | 'hand';
+export type Handedness = 'Left' | 'Right';
 export type TrackingState = 'calibrating' | 'tracked' | 'degraded' | 'lost';
 
 export interface Point3 {
@@ -17,6 +19,12 @@ export interface PoseSnapshot {
   /** Core shoulders/hips status; each sport action carries confidence from its own landmark gate. */
   trackingState: TrackingState;
   bodyConfidence: number;
+}
+
+export interface HandSnapshot {
+  timestampMs: number;
+  landmarks: readonly Point3[];
+  handedness?: Handedness;
 }
 
 export interface CalibrationProfile {
@@ -56,6 +64,13 @@ export interface WorkerInit {
   wasmBaseUrl: string;
   modelUrl: string;
   delegate: Delegate;
+  mode: VisionMode;
+}
+
+export interface WorkerSetMode {
+  type: 'SET_MODE';
+  mode: VisionMode;
+  modelUrl: string;
 }
 
 export interface WorkerFrame {
@@ -68,10 +83,10 @@ export interface WorkerFrame {
   bitmap: ImageBitmap;
 }
 
-export type WorkerRequest = WorkerInit | WorkerFrame | { type: 'DISPOSE' };
+export type WorkerRequest = WorkerInit | WorkerSetMode | WorkerFrame | { type: 'DISPOSE' };
 
 export type WorkerReply =
-  | { type: 'READY'; delegate: Delegate }
+  | { type: 'READY'; mode: VisionMode; delegate: Delegate }
   | {
       type: 'POSE';
       requestId: number;
@@ -80,17 +95,31 @@ export type WorkerReply =
       landmarks: Point3[];
       worldLandmarks: Point3[];
     }
+  | {
+      type: 'HAND';
+      requestId: number;
+      captureEpoch: number;
+      timestampMs: number;
+      landmarks: Point3[];
+      handedness?: Handedness;
+    }
   | { type: 'FALLBACK'; from: 'GPU'; to: 'CPU'; reason: string }
   | { type: 'ERROR'; stage: 'init'; fatal: boolean; message: string }
   | { type: 'ERROR'; stage: 'detect'; fatal: boolean; message: string; requestId: number; captureEpoch: number };
 
 export type AimZone = 'cross' | 'center' | 'line';
 export type SportActionEvent =
-  | ActionBase & { type: 'sprint'; speed01: number; cadenceSpm: number }
-  | ActionBase & { type: 'step'; side: Hand }
-  | ActionBase & { type: 'jump' }
-  | ActionBase & { type: 'lane'; direction: 'left' | 'right' }
-  | ActionBase & { type: 'swing'; side: 'forehand' | 'backhand'; power01: number; aimZone: AimZone; peakTimestampMs?: number };
+  | (ActionBase & { type: 'sprint'; speed01: number; cadenceSpm: number })
+  | (ActionBase & { type: 'step'; side: Hand })
+  | (ActionBase & { type: 'jump' })
+  | (ActionBase & { type: 'lane'; direction: 'left' | 'right' })
+  | (ActionBase & {
+      type: 'swing';
+      side: 'forehand' | 'backhand';
+      power01: number;
+      aimZone: AimZone;
+      peakTimestampMs?: number;
+    });
 
 export interface ContinuousControls {
   /** Always neutral when cadence tracking is degraded or lost. */

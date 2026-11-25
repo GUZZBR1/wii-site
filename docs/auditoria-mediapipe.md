@@ -117,6 +117,8 @@ Coisas que **não** são problema (verificadas): `detectForVideo` não tem varia
 
 **O que é.** `fallback()` chama `landmarker?.close()` (fecha o *grafo*, não o módulo) e `createTask('CPU')` → `createFromOptions` → `ModuleFactory(module)` de novo (`Wh`, offset ~66905). Cada `ModuleFactory` instancia um heap WASM novo (~19 MB inicial + crescimento); o heap do delegate falho fica alocado até o worker morrer. Também refaz `import()` do loader (barato — módulo cacheado) e `fetch(modelUrl)` (cache HTTP).
 
+**Nota da implementação dual-mode.** Em um module worker, o `import()` cacheado do loader não reexecuta o script; `createFromOptions` consome e limpa `self.ModuleFactory` após cada instanciação. Por isso `pose.worker.ts` re-semeia `self.ModuleFactory` a partir do `export default` do próprio loader antes de cada criação de landmarker. Sem esse reseed, a primeira troca pose↔mão ou o fallback GPU→CPU falharia com `ModuleFactory not set` mesmo com o arquivo JS já cacheado.
+
 **Alternativa (requer validação).** `PoseLandmarker.setOptions` (`vision.d.ts:2618`) → `A(t)` → `l(t)` remapeia `delegate` no proto de aceleração e `u()` regenera + `setGraph` recria o grafo **no mesmo módulo** — trocar delegate sem segundo heap. Não é documentado que `setOptions` suporte troca de delegate pós-falha (o `l()` tem path explícito de `"delegate"in e`), então é hipótese plausível a verificar, não recomendação.
 
 **Evidência:** `pose.worker.ts:32-46`; `vision_bundle.mjs` `Wh`/`ModuleFactory` (~66905), `ru.l` delegate→proto (~68400+); `vision.d.ts:2618`.

@@ -24,7 +24,9 @@ for (const v of semvers) {
 if (!WASM) throw new Error('dir wasm versionado não encontrado');
 // nome do modelo = sha8 do conteúdo, derivável do SHA256SUMS servido
 const sums = await (await fetch('/mediapipe/models/SHA256SUMS')).text();
-const sha8 = sums.match(/[0-9a-f]{64}/)[0].slice(0, 8);
+const poseSum = sums.match(/^([0-9a-f]{64})\s+pose_landmarker_lite\.[0-9a-f]{8}\.task$/m);
+if (!poseSum) throw new Error('entrada do modelo de pose não encontrada no SHA256SUMS');
+const sha8 = poseSum[1].slice(0, 8);
 const MODEL = location.origin + `/mediapipe/models/pose_landmarker_lite.${sha8}.task`;
 const W = 640, H = 480, WARMUP = 8, FRAMES = 60;
 
@@ -66,7 +68,7 @@ async function bench(delegate, canvas, label) {
       else if (m.type === 'FALLBACK') out.fellBack = true;
       else if (m.type === 'ERROR') { out.errors.push(m.message); if (m.fatal) resolve(false); }
     };
-    worker.postMessage({ type: 'INIT', delegate, wasmBaseUrl: WASM, modelUrl: MODEL });
+    worker.postMessage({ type: 'INIT', delegate, wasmBaseUrl: WASM, modelUrl: MODEL, mode: 'pose' });
     setTimeout(() => resolve(false), 45_000);
   });
   if (!ready) { worker.terminate(); return out; }
@@ -77,7 +79,7 @@ async function bench(delegate, canvas, label) {
     const bitmapMs = performance.now() - tb;
     const ts = Math.max(performance.now(), lastTs + 0.01); lastTs = ts;
     const t0 = performance.now();
-    worker.postMessage({ type: 'FRAME', timestampMs: ts, bitmap }, [bitmap]);
+    worker.postMessage({ type: 'FRAME', requestId: i + 1, captureEpoch: 1, timestampMs: ts, bitmap }, [bitmap]);
     const res = await new Promise((resolve) => {
       const to = setTimeout(() => resolve({ type: 'TIMEOUT' }), 15_000);
       worker.onmessage = (e) => {
