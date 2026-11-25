@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
 import { classify, createGovernor, parseSaved, reusableLevel } from '../src/lib/quality.ts';
 
 const good = { cores: 8, memory: 8, renderer: 'GPU' };
@@ -38,4 +39,13 @@ test('perfil salvo expira e depende do aparelho', () => {
   assert.equal(reusableLevel(saved, 'b', 2000), undefined);
   assert.equal(reusableLevel(saved, 'a', 1000 + 8 * 864e5), undefined);
   assert.deepEqual(parseSaved('lixo'), { mode: 'auto' });
+});
+
+test('o cursor de mão não depende do preenchimento preto padrão do SVG', () => {
+  const css = readFileSync(new URL('../src/arena/arena.css', import.meta.url), 'utf8');
+  for (const selector of ['.hand-layer', '.hand-cursor', '.hand-ring', '.hand-icon']) {
+    assert.ok(css.includes(selector), `faltou ${selector}`);
+  }
+  assert.match(css, /\.hand-ring\s*\{[^}]*fill:\s*none/);
+  assert.match(css, /\.hand-icon\s*\{[^}]*fill:\s*#fff/);
 });
