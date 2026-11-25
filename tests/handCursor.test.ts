@@ -7,6 +7,10 @@ function synched(detector = new HandCursorDetector()) {
   return detector;
 }
 
+function syncedForGestureTiming() {
+  return synched(new HandCursorDetector({ maxFrameGapMs: 1000 }));
+}
+
 function pinchSeries(detector: HandCursorDetector, frames: readonly [time: number, ratio: number][]) {
   return frames.map(([time, ratio]) => detector.update(hand(time, { pinchRatio: ratio })));
 }
@@ -84,6 +88,30 @@ describe('hand cursor synchronization and active zone', () => {
     expect(reacquired).toMatchObject({ visible: true, synced: false, syncProgress: 0 });
   });
 
+  it('centers the active zone on the median stable hand position when synchronization completes', () => {
+    const detector = new HandCursorDetector();
+    let completed = detector.update(hand(0, { tipX: 0.7, tipY: 0.6 }));
+    for (let time = 100; time <= 1000; time += 100) completed = detector.update(hand(time, { tipX: 0.7, tipY: 0.6 }));
+
+    expect(completed.synced).toBe(true);
+    expect(completed.activeZone.minX).toBeCloseTo(0);
+    expect(completed.activeZone.maxX).toBeCloseTo(0.6);
+    expect(completed.activeZone.minY).toBeCloseTo(0.3);
+    expect(completed.activeZone.maxY).toBeCloseTo(0.9);
+    expect(completed.x).toBeCloseTo(0.5);
+    expect(completed.y).toBeCloseTo(0.5);
+  });
+
+  it('clamps a near-edge calibration zone inside the camera frame', () => {
+    const detector = new HandCursorDetector();
+    let completed = detector.update(hand(0, { tipX: 0.95, tipY: 0.5 }));
+    for (let time = 100; time <= 1000; time += 100) completed = detector.update(hand(time, { tipX: 0.95, tipY: 0.5 }));
+
+    expect(completed.activeZone.minX).toBe(0);
+    expect(completed.activeZone.maxX).toBeCloseTo(0.6);
+    expect(completed.x).toBeCloseTo((0.05 - completed.activeZone.minX) / 0.6);
+  });
+
   it('uses planar dispersion for the synchronization stability tolerance', () => {
     const detector = new HandCursorDetector();
     detector.update(hand(0));
@@ -139,7 +167,7 @@ describe('hand cursor pinch click', () => {
   });
 
   it('fires once through the hysteresis cycle and freezes the cursor while pinching', () => {
-    const detector = synched();
+    const detector = syncedForGestureTiming();
     const target = detector.update(hand(1100, { tipX: 0.4, tipY: 0.4, pinchRatio: 0.8 }));
     const press = detector.update(hand(1200, { tipX: 0.4, tipY: 0.4, pinchRatio: 0.3 }));
     expect(press).toMatchObject({ pinching: true, pinchRelease: true, x: target.x, y: target.y });
@@ -208,7 +236,7 @@ describe('hand cursor pinch click', () => {
 
 describe('hand cursor integrated gesture session', () => {
   it('syncs, clicks once at the frozen target, then completes a back gesture', () => {
-    const detector = synched();
+    const detector = syncedForGestureTiming();
     const target = detector.update(hand(1100, { tipX: 0.4, tipY: 0.4, pinchRatio: 0.8 }));
     const clickStates = [
       detector.update(hand(1200, { tipX: 0.4, tipY: 0.4, pinchRatio: 0.3 })),
@@ -230,7 +258,7 @@ describe('hand cursor integrated gesture session', () => {
 
 describe('hand cursor closed-fist back gesture', () => {
   it('ramps progress while the fist is held and resets when the hand opens', () => {
-    const detector = synched();
+    const detector = syncedForGestureTiming();
     expect(detector.update(hand(1100, { curl: 1 })).backProgress).toBe(0);
     expect(detector.update(hand(1300, { curl: 1 })).backProgress).toBeCloseTo(0.4);
     expect(detector.update(hand(1600, { curl: 1 })).backProgress).toBe(1);
@@ -239,7 +267,7 @@ describe('hand cursor closed-fist back gesture', () => {
   });
 
   it('tolerates a partial geometric flicker but releases when the hand fully opens', () => {
-    const detector = synched();
+    const detector = syncedForGestureTiming();
     detector.update(hand(1100, { curl: 1 }));
     expect(detector.update(hand(1200, { curl: 1 })).backProgress).toBeCloseTo(0.2);
     expect(detector.update(hand(1300, { curl: 0.55 })).backProgress).toBeCloseTo(0.4);
@@ -248,27 +276,57 @@ describe('hand cursor closed-fist back gesture', () => {
   });
 
   it('resets progress when the fist is interrupted before completion', () => {
-    const detector = synched();
+    const detector = syncedForGestureTiming();
     detector.update(hand(1100, { curl: 1 }));
     expect(detector.update(hand(1300, { curl: 1 })).backProgress).toBeCloseTo(0.4);
     expect(detector.update(hand(1400, { curl: 0 })).backProgress).toBe(0);
     expect(detector.update(hand(1500, { curl: 1 })).backProgress).toBe(0);
   });
 
-  it('keeps an active fist dominant, while ambiguous new pinch geometry wins in the neutral state', () => {
-    const fistFirst = synched();
+  it('keeps active gestures dominant and treats simultaneous new pinch-plus-fist geometry as a fist', () => {
+    const fistFirst = syncedForGestureTiming();
     fistFirst.update(hand(1100, { curl: 1 }));
     const held = fistFirst.update(hand(1200, { curl: 1, pinchRatio: 0.1 }));
     expect(held).toMatchObject({ pinching: false, pinchRelease: false });
     expect(fistFirst.update(hand(1600, { curl: 1, pinchRatio: 0.1 })).backProgress).toBe(1);
 
-    const neutral = synched();
+    const pinchFirst = syncedForGestureTiming();
+    pinchFirst.update(hand(1100, { pinchRatio: 0.8 }));
+    expect(pinchFirst.update(hand(1200, { pinchRatio: 0.3 })).pinchRelease).toBe(true);
+    expect(pinchFirst.update(hand(1300, { curl: 1, pinchRatio: 0.1 }))).toMatchObject({
+      pinching: true,
+      backProgress: 0,
+    });
+
+    const neutral = syncedForGestureTiming();
     const ambiguous = neutral.update(hand(1100, { curl: 1, pinchRatio: 0.1 }));
-    expect(ambiguous).toMatchObject({ pinching: true, pinchRelease: true, backProgress: 0 });
+    expect(ambiguous).toMatchObject({ pinching: false, pinchRelease: false, backProgress: 0 });
+    expect(neutral.update(hand(1600, { curl: 1, pinchRatio: 0.1 })).backProgress).toBe(1);
+  });
+
+  it('cancels and rearms an incomplete back gesture across a long observation gap', () => {
+    const detector = synched();
+    detector.update(hand(1100, { curl: 1 }));
+    expect(detector.update(hand(1500, { curl: 1 })).backProgress).toBe(0);
+    detector.update(hand(1600, { curl: 0 }));
+    detector.update(hand(1700, { curl: 1 }));
+    for (const time of [1800, 1900, 2000, 2100]) detector.update(hand(time, { curl: 1 }));
+    expect(detector.update(hand(2200, { curl: 1 })).backProgress).toBe(1);
+  });
+
+  it('does not start the back gesture when the hand was already closed during synchronization', () => {
+    const detector = new HandCursorDetector({ maxFrameGapMs: 1000 });
+    for (let time = 0; time <= 1000; time += 100) detector.update(hand(time, { curl: 1 }));
+    expect(detector.update(hand(1100, { curl: 1 })).backProgress).toBe(0);
+    expect(detector.update(hand(1600, { curl: 1 })).backProgress).toBe(0);
+
+    detector.update(hand(1700, { curl: 0 }));
+    expect(detector.update(hand(1800, { curl: 1 })).backProgress).toBe(0);
+    expect(detector.update(hand(2300, { curl: 1 })).backProgress).toBe(1);
   });
 
   it('freezes the cursor while the fist progress is being held', () => {
-    const detector = synched();
+    const detector = syncedForGestureTiming();
     const before = detector.update(hand(1100, { tipX: 0.4, tipY: 0.4 }));
     const held = detector.update(hand(1200, { tipX: 0.7, tipY: 0.7, curl: 1 }));
     expect(held).toMatchObject({ x: before.x, y: before.y, backProgress: 0 });

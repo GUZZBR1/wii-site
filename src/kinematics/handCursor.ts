@@ -108,6 +108,12 @@ function closedFist(
   return straightness < enterStraightness;
 }
 
+function median(values: readonly number[]): number {
+  const sorted = [...values].sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 0 ? (sorted[middle - 1]! + sorted[middle]!) / 2 : sorted[middle]!;
+}
+
 function validZone(zone: HandCursorZone): boolean {
   return (
     zone.minX >= 0 &&
@@ -120,7 +126,10 @@ function validZone(zone: HandCursorZone): boolean {
 }
 
 export class HandCursorDetector {
-  private readonly activeZone: HandCursorZone;
+  private readonly initialZone: HandCursorZone;
+  private readonly zoneWidth: number;
+  private readonly zoneHeight: number;
+  private activeZone: HandCursorZone;
   private readonly syncDurationMs: number;
   private readonly syncTolerance: number;
   private readonly maxFrameGapMs: number;
@@ -137,6 +146,8 @@ export class HandCursorDetector {
   private syncStartMs?: number;
   private syncOriginX = 0;
   private syncOriginY = 0;
+  private syncSamplesX: number[] = [];
+  private syncSamplesY: number[] = [];
   private synced = false;
   private lostSinceMs?: number;
   private lastTimestampMs?: number;
@@ -145,11 +156,15 @@ export class HandCursorDetector {
   private backSinceMs?: number;
   private fistActive = false;
   private pinchNeedsRelease = false;
+  private fistNeedsOpen = false;
   private lastPinchClickAt = Number.NEGATIVE_INFINITY;
 
   constructor(options: HandCursorOptions = {}) {
-    this.activeZone = { ...(options.activeZone ?? DEFAULT_ZONE) };
-    if (!validZone(this.activeZone)) throw new Error('Hand cursor active zone must be inside 0..1 with min < max');
+    this.initialZone = { ...(options.activeZone ?? DEFAULT_ZONE) };
+    if (!validZone(this.initialZone)) throw new Error('Hand cursor active zone must be inside 0..1 with min < max');
+    this.zoneWidth = this.initialZone.maxX - this.initialZone.minX;
+    this.zoneHeight = this.initialZone.maxY - this.initialZone.minY;
+    this.activeZone = { ...this.initialZone };
     this.syncDurationMs = options.syncDurationMs ?? 1000;
     this.syncTolerance = options.syncTolerance ?? 0.04;
     this.maxFrameGapMs = options.maxFrameGapMs ?? 250;
@@ -189,15 +204,27 @@ export class HandCursorDetector {
       this.yFilter.reset();
       if (!this.synced) this.syncStartMs = undefined;
       this.lastFreePosition = undefined;
+      this.pinch.resetActive();
+      this.pinchNeedsRelease = true;
+      this.fistActive = false;
+      this.fistNeedsOpen = true;
+      this.backSinceMs = undefined;
     }
     this.lastTimestampMs = timestampMs;
     this.lostSinceMs = undefined;
 
-    if (!this.synced) this.updateSync(raw, timestampMs, aspectY);
+    const justSynced = !this.synced && this.updateSync(raw, timestampMs, aspectY);
+    if (justSynced) {
+      this.xFilter.reset();
+      this.yFilter.reset();
+    }
 
     const mapped = this.mapToScreen(raw);
     const smoothX = this.xFilter.filter(mapped.x, timestampMs);
     const smoothY = this.yFilter.filter(mapped.y, timestampMs);
+
+    const straightness = maxFingerStraightness(points, aspectY);
+    if (straightness !== undefined && straightness >= this.fistReleaseStraightness) this.fistNeedsOpen = false;
 
     let pinching = false;
     let pinchRelease = false;
@@ -231,9 +258,23 @@ export class HandCursorDetector {
           updatePinch();
         }
       } else {
+        const pinchWasActive = this.pinch.isActive;
         updatePinch();
         this.backSinceMs = undefined;
-        if (!pinching) {
+        if (
+          pinching &&
+          !pinchWasActive &&
+          closedFist(points, false, this.fistEnterStraightness, this.fistReleaseStraightness, aspectY)
+        ) {
+          pinching = false;
+          pinchRelease = false;
+          this.pinch.resetActive();
+          this.pinchNeedsRelease = true;
+          this.fistActive = true;
+          fist = true;
+          this.backSinceMs = timestampMs;
+        }
+        if (!pinching && !fist && !this.fistNeedsOpen) {
           this.fistActive = closedFist(
             points,
             false,
@@ -252,14 +293,16 @@ export class HandCursorDetector {
     } else {
       this.pinch.resetActive();
       this.pinchNeedsRelease = true;
+      this.fistNeedsOpen = true;
       this.backSinceMs = undefined;
       this.fistActive = false;
     }
 
-    if (pinching || fist) this.frozenPosition ??= this.lastFreePosition ?? { x: smoothX, y: smoothY };
+    const candidate = { x: clamp(smoothX), y: clamp(smoothY) };
+    if (pinching || fist) this.frozenPosition ??= this.lastFreePosition ?? candidate;
     else this.frozenPosition = undefined;
-    const position = this.frozenPosition ?? { x: smoothX, y: smoothY };
-    if (!pinching && !fist) this.lastFreePosition = { x: smoothX, y: smoothY };
+    const position = this.frozenPosition ?? candidate;
+    if (!pinching && !fist) this.lastFreePosition = candidate;
     return {
       visible: true,
       x: position.x,
@@ -276,6 +319,7 @@ export class HandCursorDetector {
   reset(): void {
     this.synced = false;
     this.syncStartMs = undefined;
+    this.activeZone = { ...this.initialZone };
     this.lostSinceMs = undefined;
     this.lastTimestampMs = undefined;
     this.frozenPosition = undefined;
@@ -283,6 +327,7 @@ export class HandCursorDetector {
     this.backSinceMs = undefined;
     this.fistActive = false;
     this.pinchNeedsRelease = false;
+    this.fistNeedsOpen = false;
     this.lastPinchClickAt = Number.NEGATIVE_INFINITY;
     this.xFilter.reset();
     this.yFilter.reset();
@@ -303,6 +348,7 @@ export class HandCursorDetector {
     this.yFilter.reset();
     this.pinch.resetActive();
     this.pinchNeedsRelease = true;
+    this.fistNeedsOpen = true;
     this.frozenPosition = undefined;
     this.lastFreePosition = undefined;
     this.backSinceMs = undefined;
@@ -330,29 +376,48 @@ export class HandCursorDetector {
 
   private mapToScreen(point: { x: number; y: number }): { x: number; y: number } {
     return {
-      x: clamp((point.x - this.activeZone.minX) / (this.activeZone.maxX - this.activeZone.minX)),
-      y: clamp((point.y - this.activeZone.minY) / (this.activeZone.maxY - this.activeZone.minY)),
+      x: (point.x - this.activeZone.minX) / (this.activeZone.maxX - this.activeZone.minX),
+      y: (point.y - this.activeZone.minY) / (this.activeZone.maxY - this.activeZone.minY),
     };
-  }
-
-  private updateSync(point: { x: number; y: number }, timestampMs: number, aspectY: number): void {
-    if (this.syncStartMs === undefined) {
-      this.syncStartMs = timestampMs;
-      this.syncOriginX = point.x;
-      this.syncOriginY = point.y;
-      return;
-    }
-    if (Math.hypot(point.x - this.syncOriginX, (point.y - this.syncOriginY) * aspectY) > this.syncTolerance) {
-      this.syncStartMs = timestampMs;
-      this.syncOriginX = point.x;
-      this.syncOriginY = point.y;
-      return;
-    }
-    if (timestampMs - this.syncStartMs >= this.syncDurationMs) this.synced = true;
   }
 
   private syncProgress(timestampMs: number): number {
     if (this.syncStartMs === undefined) return 0;
     return clamp((timestampMs - this.syncStartMs) / this.syncDurationMs);
+  }
+
+  private updateSync(point: { x: number; y: number }, timestampMs: number, aspectY: number): boolean {
+    if (this.syncStartMs === undefined) {
+      this.syncStartMs = timestampMs;
+      this.syncOriginX = point.x;
+      this.syncOriginY = point.y;
+      this.syncSamplesX = [point.x];
+      this.syncSamplesY = [point.y];
+      return false;
+    }
+    if (Math.hypot(point.x - this.syncOriginX, (point.y - this.syncOriginY) * aspectY) > this.syncTolerance) {
+      this.syncStartMs = timestampMs;
+      this.syncOriginX = point.x;
+      this.syncOriginY = point.y;
+      this.syncSamplesX = [point.x];
+      this.syncSamplesY = [point.y];
+      return false;
+    }
+    this.syncSamplesX.push(point.x);
+    this.syncSamplesY.push(point.y);
+    if (timestampMs - this.syncStartMs < this.syncDurationMs) return false;
+
+    const halfWidth = this.zoneWidth / 2;
+    const halfHeight = this.zoneHeight / 2;
+    const centerX = clamp(median(this.syncSamplesX), halfWidth, 1 - halfWidth);
+    const centerY = clamp(median(this.syncSamplesY), halfHeight, 1 - halfHeight);
+    this.activeZone = {
+      minX: centerX - halfWidth,
+      maxX: centerX + halfWidth,
+      minY: centerY - halfHeight,
+      maxY: centerY + halfHeight,
+    };
+    this.synced = true;
+    return true;
   }
 }
