@@ -1,11 +1,11 @@
 // Verifica que o build realmente empacotou os artigos e as figuras de
-// ../docs/research. import.meta.glob aceita resultado vazio sem erro, então um
+// docs/research. import.meta.glob aceita resultado vazio sem erro, então um
 // build verde podia esconder artigos ausentes (achado do review no draw-core).
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 const siteDir = join(new URL('.', import.meta.url).pathname, '..');
-const researchDir = join(siteDir, '../docs/research');
+const researchDir = join(siteDir, 'docs/research');
 const bundle = readdirSync(join(siteDir, 'dist/assets'))
   .filter((f) => f.endsWith('.js'))
   .map((f) => readFileSync(join(siteDir, 'dist/assets', f), 'utf8'))

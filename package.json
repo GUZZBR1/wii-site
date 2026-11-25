@@ -1,34 +1,33 @@
 {
-  "name": "wii-web-sports",
+  "name": "wii-site",
   "private": true,
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --host 0.0.0.0",
     "predev": "node scripts/copy-mediapipe-wasm.mjs",
-    "build": "tsc -b && vite build",
     "prebuild": "node scripts/copy-mediapipe-wasm.mjs",
+    "dev": "vite --host 0.0.0.0",
+    "build": "tsc -b && vite build",
     "preview": "vite preview --host 0.0.0.0",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "lint": "biome lint .",
-    "format": "biome format --write ."
+    "test": "node --test tests/quality.test.mjs && vitest run tests/handCursor.test.ts"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "1.2.3",
-    "react": "19.3.1",
-    "react-dom": "19.3.1",
+    "@tailwindcss/vite": "^4.3.4",
+    "motion": "^14.9.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "react-router-dom": "^7.18.5",
+    "tailwindcss": "^4.3.4",
     "three": "0.187.0"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.6.8",
-    "@types/node": "24.19.2",
-    "@types/react": "19.3.1",
-    "@types/react-dom": "19.3.0",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
     "@types/three": "0.187.0",
-    "@vitejs/plugin-react": "6.3.0",
-    "typescript": "7.0.2",
-    "vite": "8.3.8",
+    "@vitejs/plugin-react": "^6.2.1",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.5",
     "vitest": "5.1.1"
   }
 }

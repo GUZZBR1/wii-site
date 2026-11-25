@@ -1,17 +1,24 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import type { CalibrationProfile, SportActionEvent } from './cv/protocol';
+import type { CalibrationProfile, SportActionEvent, VisionMode } from './cv/protocol';
 import { AutoCalibrator, type CalibrationPhase } from './cv/autoCalibrator';
 import { PoseClient, type PoseClientCallbacks } from './cv/poseClient';
 import { ActionPipeline } from './kinematics/actionPipeline';
+import { HandCursorDetector } from './kinematics/handCursor';
 import { ProceduralAudio } from './games/audio';
 import { CameraPip } from './ui/CameraPip';
 import { GameCanvas, type GameEngineHandle, type Sport } from './ui/GameCanvas';
+import { HandCursor } from './ui/HandCursor';
+import { HandPanel } from './ui/HandPanel';
+import { HAND_IDLE } from './ui/handCursorTypes';
 import { drawPose } from './ui/PoseOverlay';
 import { GamesMenu, HomeMenu, TitleMenu } from './ui/WiiMenu';
 import { WiiSplash } from './ui/WiiSplash';
 import './arena.css';
 
 type Screen = 'calibration' | 'home' | 'title' | 'games' | 'play';
+
+const inHandMenu = (screen: Screen) => screen === 'home' || screen === 'title' || screen === 'games';
+const modeForScreen = (screen: Screen): VisionMode => (inHandMenu(screen) ? 'hand' : 'pose');
 
 export default function ArenaApp({ exit }: { exit: ReactNode }) {
   const [splash, setSplash] = useState(true);
@@ -23,6 +30,8 @@ export default function ArenaApp({ exit }: { exit: ReactNode }) {
   const [calibrationPhase, setCalibrationPhase] = useState<CalibrationPhase>('framing');
   const [calibrationProgress, setCalibrationProgress] = useState(0);
   const [muted, setMuted] = useState(false);
+  const [handPanelOpen, setHandPanelOpen] = useState(false);
+  const [handInput, setHandInput] = useState(HAND_IDLE);
   const videoRef = useRef<HTMLVideoElement>(null);
   const overlayRef = useRef<HTMLCanvasElement>(null);
   const clientRef = useRef<PoseClient | undefined>(undefined);
@@ -30,8 +39,12 @@ export default function ArenaApp({ exit }: { exit: ReactNode }) {
   const engineRef = useRef<GameEngineHandle | null>(null);
   const pipelineRef = useRef(new ActionPipeline());
   const calibratorRef = useRef(new AutoCalibrator());
+  const handDetectorRef = useRef(new HandCursorDetector());
   const sportRef = useRef(sport);
   sportRef.current = sport;
+  const screenRef = useRef(screen);
+  screenRef.current = screen;
+  const visionModeRef = useRef<VisionMode>('pose');
   const profileRef = useRef<CalibrationProfile | undefined>(undefined);
   const audioRef = useRef(new ProceduralAudio());
   const cameraAttemptRef = useRef(0);
@@ -48,6 +61,20 @@ export default function ArenaApp({ exit }: { exit: ReactNode }) {
       audioRef.current.dispose();
     };
   }, []);
+
+  // A tela dona do modo: menus são controlados pela mão; calibração e jogo usam o corpo.
+  useEffect(() => {
+    const next = modeForScreen(screen);
+    if (visionModeRef.current === next) return;
+    visionModeRef.current = next;
+    handDetectorRef.current.reset();
+    setHandInput(HAND_IDLE);
+    const client = clientRef.current;
+    if (!cameraOn || !client?.isReady) return;
+    void client.setMode(next).catch((error: unknown) => {
+      setCameraStatus(error instanceof Error ? error.message : 'Não foi possível trocar o modo de visão.');
+    });
+  }, [screen, cameraOn]);
 
   const onEngine = useCallback((engine: GameEngineHandle | null) => { engineRef.current = engine; }, []);
   const dispatchEvent = useCallback((event: SportActionEvent) => {
@@ -74,6 +101,8 @@ export default function ArenaApp({ exit }: { exit: ReactNode }) {
     setCameraOn(false);
     setTracking('SEM POSE');
     setCameraStatus('Câmera desligada');
+    handDetectorRef.current.reset();
+    setHandInput(HAND_IDLE);
     for (const event of pipelineRef.current.reset()) dispatchEvent(event);
     recalibrate();
     drawPose(overlayRef.current, videoRef.current);
@@ -108,12 +137,28 @@ export default function ArenaApp({ exit }: { exit: ReactNode }) {
         drawPose(overlayRef.current, videoRef.current, current);
         for (const event of result.events) dispatchEvent(event);
       },
+      onHand: (snapshot) => {
+        if (stale()) return;
+        const state = handDetectorRef.current.update(snapshot);
+        setHandInput({
+          visible: state.visible,
+          x: state.x * window.innerWidth,
+          y: state.y * window.innerHeight,
+          syncProgress: state.syncProgress,
+          synced: state.synced,
+          pinching: state.pinching,
+          pinchRelease: state.pinchRelease,
+          backProgress: state.backProgress,
+        });
+      },
     };
     try {
       void audioRef.current.unlock();
       clientRef.current ??= new PoseClient();
       const client = clientRef.current;
-      const visionReady = client.init(callbacks);
+      const desiredMode = modeForScreen(screenRef.current);
+      visionModeRef.current = desiredMode;
+      const visionReady = client.init(callbacks, 'GPU', desiredMode).then(() => client.setMode(desiredMode));
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: false,
         video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30, max: 30 } },
@@ -154,7 +199,7 @@ export default function ArenaApp({ exit }: { exit: ReactNode }) {
     void startCamera();
   }, [startCamera]);
 
-  // Calibrou: deixa o "Calibrado" aparecer e segue para o menu.
+  // Calibrou: deixa o "Calibrado" aparecer e segue para o menu em modo de mão.
   useEffect(() => {
     if (screen !== 'calibration' || calibrationPhase !== 'done') return;
     const timer = window.setTimeout(() => setScreen('home'), 1500);
@@ -172,8 +217,27 @@ export default function ArenaApp({ exit }: { exit: ReactNode }) {
     sportRef.current = next;
     // Um perfil parcial não tem referência de salto/raia: a corrida refaz a calibração.
     if (next === 'track' && profileRef.current && !profileRef.current.world.leanUp0) recalibrate();
+    setHandPanelOpen(false);
     setScreen('play');
   };
+
+  const closeHandPanel = useCallback(() => {
+    stopCamera();
+    setHandPanelOpen(false);
+  }, [stopCamera]);
+
+  const openHandPanel = useCallback(() => {
+    PoseClient.warmVisionAssets('hand');
+    setHandPanelOpen(true);
+  }, []);
+
+  const handBack = useCallback(() => {
+    if (screenRef.current === 'games') setScreen('title');
+    else if (screenRef.current === 'title') setScreen('home');
+    else if (handPanelOpen) closeHandPanel();
+  }, [closeHandPanel, handPanelOpen]);
+
+  const menu = inHandMenu(screen);
 
   return <div className="stage">
     {screen === 'play' && <GameCanvas key={sport} sport={sport} onEngine={onEngine} tracking={tracking} />}
@@ -191,7 +255,17 @@ export default function ArenaApp({ exit }: { exit: ReactNode }) {
       <button type="button" className="dock-btn round" onClick={toggleMute} title={muted ? 'Áudio desligado' : 'Áudio ligado'}>{muted ? '×' : '♫'}</button>
     </div>}
 
+    {menu && !handPanelOpen && <div className="hud-dock">
+      <button type="button" className="dock-btn" onClick={openHandPanel}>MÃO</button>
+    </div>}
+    {menu && handPanelOpen && <HandPanel
+      sourceRef={videoRef} cameraOn={cameraOn} status={cameraStatus} synced={handInput.synced}
+      onStart={() => void startCamera()} onClose={closeHandPanel}
+    />}
+    <HandCursor input={handInput} active={menu && cameraOn} onBack={handBack} />
+
     <CameraPip
+      hidden={menu && handPanelOpen}
       sport={sport}
       videoRef={videoRef} canvasRef={overlayRef} cameraOn={cameraOn} status={cameraStatus} tracking={tracking}
       calibrationPhase={calibrationPhase} calibrationProgress={calibrationProgress}

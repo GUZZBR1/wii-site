@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { HandCursorDetector } from '../src/kinematics/handCursor';
+import { HandCursorDetector } from '../src/arena/kinematics/handCursor';
 import { emptyHand, hand } from './fixtures/syntheticHand';
 
 function synched(detector = new HandCursorDetector()) {

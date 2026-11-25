@@ -67,13 +67,13 @@ const unknownModels = modelFiles.filter((name) => name.endsWith('.task') && !exp
 if (unknownModels.length)
   throw new Error(`Unverified model files in public/mediapipe/models/: ${unknownModels.join(', ')}`);
 
-const assetsSource = await readFile(resolve(root, 'src/cv/mediapipeAssets.ts'), 'utf8');
+const assetsSource = await readFile(resolve(root, 'src/arena/cv/mediapipeAssets.ts'), 'utf8');
 for (const [name, value] of [
   ['MEDIAPIPE_WASM_VERSION', packageJson.version],
   ...verifiedModels.map((model) => [model.constant, model.sha8]),
 ]) {
   const exported = assetsSource.match(new RegExp(`^export\\s+const\\s+${name}\\s*=\\s*'([^']+)'`, 'm'))?.[1];
-  if (exported !== value) throw new Error(`src/cv/mediapipeAssets.ts is out of sync: expected ${name} = '${value}'`);
+  if (exported !== value) throw new Error(`src/arena/cv/mediapipeAssets.ts is out of sync: expected ${name} = '${value}'`);
 }
 console.log(
   `MediaPipe ${packageJson.version}: module WASM copied to wasm-${packageJson.version}/; ${verifiedModels.map((model) => model.expectedName).join(' and ')} verified.`,

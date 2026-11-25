@@ -5,7 +5,7 @@ import { useLang } from '../i18n';
 import { buildPdf, markdownToPdfBlocks } from '../lib/pdf';
 
 // Inclui os textos no carregamento da página, sem uma requisição por artigo.
-const sources = import.meta.glob<string>('../../../docs/research/[0-9][0-9]-*.md', {
+const sources = import.meta.glob<string>('../../docs/research/[0-9][0-9]-*.md', {
   query: '?raw',
   import: 'default',
   eager: true,
@@ -39,8 +39,8 @@ function downloadArticle(id: string, title: string, markdown: string, english: b
   URL.revokeObjectURL(url);
 }
 
-const figures = import.meta.glob<string>('../../../docs/research/figures/*.svg', { query: '?url', import: 'default', eager: true });
-const figuresEn = import.meta.glob<string>('../../../docs/research/figures/en/*.svg', { query: '?url', import: 'default', eager: true });
+const figures = import.meta.glob<string>('../../docs/research/figures/*.svg', { query: '?url', import: 'default', eager: true });
+const figuresEn = import.meta.glob<string>('../../docs/research/figures/en/*.svg', { query: '?url', import: 'default', eager: true });
 
 function referenceNumbers(value: string): number[] {
   return value.split(/,\s*/).flatMap((part) => {
@@ -176,8 +176,8 @@ function render(md: string, refs: Map<number, string>, english: boolean): ReactN
       lines.forEach((line, j) => {
         const match = line.match(/^!\[([^\]]*)\]\(figures\/([^/)]+)\)$/);
         // Versão inglesa da figura quando o artigo está em inglês; senão, a original.
-        const src = match && (english ? figuresEn[`../../../docs/research/figures/en/${match[2]}`] : undefined)
-          || (match && figures[`../../../docs/research/figures/${match[2]}`]);
+        const src = match && (english ? figuresEn[`../../docs/research/figures/en/${match[2]}`] : undefined)
+          || (match && figures[`../../docs/research/figures/${match[2]}`]);
         if (src) {
           const description = blocks[i + 1]?.replace(/^\*\*(?:Figura|Figure) \d+\.\*\*\s*/, '').trim() || t('Figura ilustrativa do artigo.', 'Illustrative figure from the article.');
           out.push(<Figure key={`${i}-${j}`} number={blocks[i + 1]?.match(/^\*\*(?:Figura|Figure) (\d+)\./)?.[1]} src={src} description={description} matrix={match?.[2] === '02-matriz-fatores.svg'} left={(match?.[2]?.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0) ?? 0) % 2 === 0} />);
