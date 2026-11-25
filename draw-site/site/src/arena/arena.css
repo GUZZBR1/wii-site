@@ -1,0 +1,191 @@
+/* Tudo aninhado em .arena: o CSS continua carregado depois de sair e não pode vazar para o site. */
+.arena {
+  font-family: 'M PLUS Rounded 1c', 'Varela Round', 'Nunito', 'Segoe UI', Arial, sans-serif; color: #4a525a; background: #eef1f3; font-synthesis: none; text-rendering: optimizeLegibility; --ink: #4a525a; --muted: #8b949c; --line: #c4cbd1; --blue: #34beed; --blue-deep: #1a8fc4; --orange: #f59b3c; --green: #4cbf6b; --gloss: linear-gradient(#fff 0%, #fbfcfd 48%, #e6eaee 52%, #f4f6f8 100%); --shadow: 0 3px 8px #4a606e40, inset 0 1px 0 #fff; line-height: normal;
+  * { box-sizing: border-box; }
+  button { font: inherit; cursor: pointer; }
+  button:focus-visible { outline: 3px solid var(--blue-deep); outline-offset: 3px; }
+  .stage { position: fixed; inset: 0; }
+
+  /* botão de vidro, base de toda a interface */
+  .wii-btn, .dock-btn, .pip-btn, .wii-skip { border: 3px solid var(--blue); border-radius: 999px; background: var(--gloss); color: var(--ink); box-shadow: var(--shadow); font-weight: 700; transition: transform .18s cubic-bezier(.3,1.6,.5,1), box-shadow .18s; }
+  .wii-btn:hover, .dock-btn:hover, .pip-btn:hover:not(:disabled), .wii-skip:hover { transform: scale(1.05); box-shadow: 0 0 0 4px #34beed55, var(--shadow); }
+
+  /* telas de menu */
+  .menu { position: absolute; inset: 0; display: flex; flex-direction: column; overflow: auto; background: repeating-linear-gradient(#0000 0 3px, #ffffff80 3px 4px), #d5dbe0; animation: menu-in .35s ease both; }
+  .logo { font-weight: 800; letter-spacing: -.02em; white-space: nowrap; }
+  .logo b { color: #8d949a; }
+  .logo i { color: var(--blue); }
+
+  .channel.empty { background: repeating-linear-gradient(#0000 0 3px, #ffffff66 3px 4px), #bcc3ca; border-color: #8f9aa4; color: #737e88; font-size: clamp(14px, 2.6vw, 30px); font-weight: 800; }
+
+  .channel-ring { position: relative; flex: 1; min-height: 260px; margin-top: 24px; overflow: hidden; }
+  .channel { position: absolute; width: min(250px, 21vw); aspect-ratio: 16/10; display: grid; place-items: center; border: 3px solid var(--line); border-radius: 18px; box-shadow: var(--shadow); transition: left .9s cubic-bezier(.3, .8, .2, 1), top .9s cubic-bezier(.3, .8, .2, 1), transform .9s cubic-bezier(.3, .8, .2, 1), opacity .9s, box-shadow .2s; }
+  /* Frutiger Aero: reflexo de vidro sobre cada canal */
+  .channel::after { content: ''; position: absolute; inset: 3px 3px 52%; border-radius: 13px 13px 50% 50% / 13px 13px 18% 18%; background: linear-gradient(#ffffffd9, #ffffff33); pointer-events: none; }
+  .channel.sports { padding: 0; border-color: var(--blue); background: linear-gradient(#ffffff, #e9f7fe 55%, #bfe9fb); font-size: clamp(16px, 2.4vw, 34px); box-shadow: 0 10px 26px rgba(26, 110, 168, .4), 0 0 0 4px #34beed44, inset 0 -10px 18px #34beed44; }
+  .channel.sports:hover { box-shadow: 0 12px 30px rgba(26, 110, 168, .5), 0 0 0 7px #34beed66, inset 0 -10px 18px #34beed55; }
+  .channel.empty { padding: 0; cursor: pointer; }
+  .channel.empty:hover, .channel.empty:focus-visible { box-shadow: 0 0 0 5px #34beed66, var(--shadow); }
+  .ring-arrow { position: absolute; z-index: 25; top: 50%; width: 52px; height: 52px; translate: 0 -50%; border: 3px solid var(--blue); border-radius: 50%; color: var(--blue-deep); background: linear-gradient(#fff 0 46%, #d9f2fd 54%, #ade4f8); box-shadow: 0 5px 14px rgba(26, 110, 168, .35), inset 0 1px #fff; }
+  .ring-arrow.left { left: 3%; }
+  .ring-arrow.right { right: 3%; }
+  .ring-arrow:hover { box-shadow: 0 0 0 5px #34beed55, 0 5px 14px rgba(26, 110, 168, .35); }
+
+  .wii-bar { position: relative; flex: 0 0 clamp(130px, 25vh, 210px); text-align: center; }
+  .wii-bar svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .wii-bar path { fill: #b4bdc5; stroke: var(--blue); stroke-width: 3; vector-effect: non-scaling-stroke; }
+  .wii-title { position: absolute; left: 0; right: 0; top: 24%; color: var(--blue); font-size: clamp(20px, 3.4vh, 32px); }
+  .wii-clock { position: absolute; left: 0; right: 0; bottom: 6%; display: flex; flex-direction: column; color: #39424a; }
+  .wii-clock strong { font-size: clamp(22px, 4.5vh, 40px); }
+  .wii-clock span { font-size: 14px; }
+
+  /* abrir o canal em etapas: 1) a roda se apaga, 2) o vidro cresce vazio, 3) o título entra na tela já montada */
+  .channels > .channel-ring, .channels > .wii-bar { transition: opacity .35s ease; }
+  .channels.is-opening > .channel-ring, .channels.is-opening > .wii-bar { opacity: 0; pointer-events: none; }
+  .channel-zoom { position: absolute; z-index: 15; border: 3px solid var(--blue); border-radius: 18px; background: var(--gloss); animation: channel-zoom .65s cubic-bezier(.6, 0, .2, 1) .3s both; }
+
+  /* a tela em si não esmaece (nada de ver o que ficou atrás); só o conteúdo dela surge */
+  .menu.title { animation: none; }
+  .title .title-card .logo, .title .stripes { animation: menu-in .5s ease .1s both; }
+  .title .title-actions { animation: title-actions-in .45s ease .35s both; }
+  .menu.title { background: var(--gloss); }
+  .title-card { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; background: radial-gradient(#0000000d 30%, #0000 32%) 0 0 / 42px 42px, linear-gradient(#e3e6e8, #fff 70%); }
+  .title-card .logo { font-size: clamp(48px, 11vw, 150px); }
+  .stripes { align-self: stretch; height: 34px; margin-bottom: 7vh; background: linear-gradient(var(--orange) 0 40%, #fff 40% 55%, var(--blue) 55%); }
+  .title-actions { display: flex; justify-content: center; flex-wrap: wrap; gap: 4vw; padding: 5vh 16px; border-top: 2px solid var(--line); background: repeating-linear-gradient(#0000 0 3px, #ffffff80 3px 4px), #d9dde0; }
+  .wii-btn.pill { width: min(340px, 80vw); padding: 18px; font-size: 26px; }
+
+  .sports-menu { background: #fff; }
+  .menu-header { display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; padding: 56px 4vw 0; border-bottom: 5px double var(--line); }
+  .menu-header h1 { margin: 0; padding: 8px 52px 8px 24px; background: #858c92; color: #fff; font-size: 22px; font-weight: 500; clip-path: polygon(0 0, calc(100% - 28px) 0, 100% 100%, 0 100%); }
+  .menu-header .logo { font-size: clamp(26px, 4vw, 46px); }
+  .logo-btn { padding: 0; border: 0; background: none; transition: transform .18s; }
+  .logo-btn:hover { transform: scale(1.06); }
+  .menu-body { flex: 1; display: flex; flex-wrap: wrap; gap: 4vw; justify-content: center; align-items: center; align-content: center; padding: 24px 4vw; background: radial-gradient(circle at 70% 40%, #0000 28%, #ffffff30 28.5% 36%, #0000 36.5%), linear-gradient(135deg, #1c8fd1, #8fd6f3 55%, #2a9bd8); }
+  .sport-list { display: flex; flex-direction: column; gap: 14px; width: min(400px, 90vw); }
+  .sport-list .wii-btn { padding: 20px; border-color: #35434d; border-radius: 18px; font-size: 28px; }
+  .sport-list .wii-btn.selected { background: linear-gradient(#c9f1fb, #8fdcef 52%, #b2e9f5); }
+  .sport-list .wii-btn.back { align-self: flex-start; padding: 8px 24px; font-size: 16px; }
+  .preview { width: min(520px, 90vw); margin: 0; overflow: hidden; border: 6px solid #fff; border-radius: 24px; background: #fff; box-shadow: 0 8px 24px #0b4a6e66; }
+  .scene { aspect-ratio: 16/9; }
+  .preview.tennis .scene { background: linear-gradient(90deg, #0000 49.6%, #fff 49.6% 50.4%, #0000 50.4%) 50% 100% / 100% 40% no-repeat, linear-gradient(#0000 68%, #fff 68% 70%, #0000 70%), linear-gradient(#8cc9f2 0%, #dcf0fb 42%, #3f8f4b 42% 48%, #3f78b5 48%); }
+  .preview.track .scene { background: linear-gradient(#8cc9f2 0%, #dcf0fb 42%, #4e9e52 42% 52%, #0000 52%), repeating-linear-gradient(#c8603f 0 13%, #fff 13% 14%); }
+  .preview figcaption { padding: 12px; text-align: center; font-weight: 700; }
+
+  /* jogo em tela cheia */
+  .game-viewport { position: absolute; inset: 0; }
+  .game-viewport canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .game-hud { position: absolute; left: 18px; right: 18px; top: 15px; display: flex; justify-content: space-between; pointer-events: none; z-index: 3; }
+  .game-hud div { display: flex; flex-direction: column; min-width: 110px; padding: 6px 18px; border: 3px solid var(--blue); border-radius: 18px; background: var(--gloss); box-shadow: var(--shadow); }
+  .game-hud span { color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: 1px; }
+  .game-hud strong { font-size: 28px; }
+  .game-speed { text-align: right; }
+  .game-speed strong { color: var(--blue-deep); font-size: 22px; }
+  .game-ready, .game-controls { position: absolute; z-index: 3; border-radius: 999px; background: #ffffffe0; box-shadow: var(--shadow); font-size: 12px; font-weight: 700; }
+  .game-ready { top: 50%; left: 50%; transform: translate(-50%, -50%); padding: 10px 18px; white-space: nowrap; }
+  .game-ready i { width: 9px; height: 9px; background: var(--orange); border-radius: 50%; margin-right: 8px; display: inline-block; }
+  .game-ready i.ready { background: var(--green); }
+  .game-controls { left: 15px; bottom: 12px; max-width: calc(100vw - 260px); padding: 6px 14px; }
+
+  /* corrida: combo, contagem/pausa e feedback */
+  .game-hud em { color: #23823f; font-style: normal; font-weight: 800; font-size: 14px; }
+  .game-banner { position: absolute; left: 0; right: 0; top: 22%; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 0 16px; color: #fff; text-align: center; text-shadow: 0 3px 10px #000c; pointer-events: none; z-index: 4; }
+  .game-banner strong { font-size: 68px; font-weight: 800; }
+  .game-banner span { font-size: 14px; font-weight: 700; }
+  /* uma animação por evento (a key do React reinicia) */
+  .game-feedback { position: absolute; inset: 0; display: flex; justify-content: center; align-items: flex-start; pointer-events: none; z-index: 2; }
+  .game-feedback span { margin-top: 18vh; color: #7be595; font-size: 34px; font-weight: 800; text-shadow: 0 2px 8px #000a; opacity: 0; animation: track-pop .9s ease-out; }
+  .game-feedback.coin span { color: #ffe066; }
+  .game-feedback.hit { animation: track-flash .4s ease-out; }
+  .game-feedback.hit span { color: #ff6b6b; }
+
+  .game-over { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(320px, 90vw); max-height: 90%; overflow: auto; padding: 20px; border: 3px solid var(--blue); border-radius: 24px; background: #fffffff5; box-shadow: var(--shadow); text-align: center; z-index: 9; }
+  .game-over h2 { margin: 0 0 8px; font-size: 30px; color: #d64545; }
+  .game-over h3 { margin: 14px 0 6px; font-size: 13px; color: var(--muted); }
+  .game-over p { margin: 0; }
+  .game-over ol { margin: 0 0 14px; padding: 0; list-style: none; }
+  .game-over li { display: flex; justify-content: space-between; padding: 3px 14px; border-radius: 999px; }
+  .game-over li.current { background: var(--orange); color: #fff; font-weight: 800; }
+  .game-over button { padding: 9px 22px; border: 3px solid var(--blue); border-radius: 999px; background: var(--gloss); color: var(--ink); box-shadow: var(--shadow); font-weight: 700; }
+
+  .hud-dock { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; align-items: center; z-index: 10; }
+  .dock-btn { height: 38px; padding: 0 18px; white-space: nowrap; }
+  .dock-btn.round { width: 38px; padding: 0; }
+
+  /* pip da câmera */
+  .cam-pip { position: absolute; right: 14px; bottom: 14px; width: 230px; z-index: 10; overflow: hidden; border: 3px solid var(--blue); border-radius: 18px; background: var(--gloss); box-shadow: 0 10px 28px #2a4a5c66; }
+  .cam-pip[hidden] { display: none; }
+  .cam-feed { position: relative; aspect-ratio: 4/3; background: #cfd8de; }
+  .cam-feed video, .cam-feed canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+  .cam-feed canvas { z-index: 2; }
+  .cam-empty { position: absolute; inset: 0; z-index: 3; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; color: #5c6770; text-align: center; }
+  .cam-empty strong { font-size: 13px; letter-spacing: 1px; }
+  .cam-empty small { font-size: 10px; }
+  .tracking-chip { position: absolute; z-index: 4; left: 8px; top: 8px; padding: 4px 9px; border-radius: 999px; background: #ffffffe0; font-size: 9px; font-weight: 700; }
+  .cam-bar { display: flex; gap: 5px; padding: 8px; align-items: center; }
+  .pip-btn { flex: 1; padding: 6px; border-width: 2px; font-size: 9px; }
+  .pip-btn:disabled { opacity: .45; cursor: not-allowed; }
+  .pip-btn.primary { background: linear-gradient(#7fd8f7, #34beed 52%, #4cc8f0); border-color: var(--blue-deep); color: #fff; text-shadow: 0 1px 2px #0b5d86; font-size: 11px; }
+  .pip-btn.icon { flex: 0 0 30px; color: var(--blue-deep); }
+  .cam-status { padding: 0 10px 8px; color: #6d777f; font-size: 9px; line-height: 1.4; min-height: 16px; text-align: center; }
+
+  @media (max-width: 640px) {
+    .cam-pip:not(.expanded) { width: 160px; }
+    .game-hud div { min-width: 0; padding: 4px 10px; }
+    .game-hud strong { font-size: 20px; }
+    .game-controls { display: none; }
+  }
+
+  .pip-toggle { position: absolute; z-index: 6; top: 6px; right: 6px; min-width: 28px; height: 24px; padding: 0 8px; }
+  .cam-pip.minimized { width: auto; overflow: visible; border: 0; background: none; box-shadow: none; }
+  .minimized .pip-toggle { position: static; height: 38px; padding: 0 18px; border-width: 3px; font-size: 11px; }
+  /* o vídeo segue renderizado (1px, invisível) para a captura de pose não parar */
+  .minimized .cam-feed { position: absolute; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none; }
+  .minimized .cam-bar, .minimized .cam-status { display: none; }
+
+  .cam-guide { position: absolute; z-index: 4; left: 6px; right: 6px; bottom: 6px; padding: 5px 8px; border-radius: 10px; background: #ffffffeb; font-size: 10px; font-weight: 700; line-height: 1.4; text-align: center; }
+  .cam-guide.ok { background: var(--green); color: #fff; }
+
+  /* tela cheia: a imagem inteira, sem cortes */
+  .cam-pip.expanded { inset: 14px; width: auto; z-index: 20; display: flex; flex-direction: column; }
+  .expanded .cam-feed { flex: 1; min-height: 0; aspect-ratio: auto; }
+  .expanded .cam-feed video, .expanded .cam-feed canvas { object-fit: contain; }
+  .expanded .cam-guide { top: 10px; bottom: auto; left: 130px; right: 130px; font-size: 18px; padding: 12px 16px; }
+  .expanded .tracking-chip { font-size: 11px; }
+  .expanded .cam-bar { justify-content: center; }
+  .expanded .pip-btn { flex: 0 0 auto; padding: 10px 18px; font-size: 11px; }
+  .expanded .cam-status { font-size: 9px; text-align: center; }
+
+  /* calibração e botões das telas */
+  .wii-screen { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; padding: 24px; background: repeating-linear-gradient(#0000 0 3px, #ffffff80 3px 4px), #e6e9ec; text-align: center; }
+  .wii-screen h1 { margin: 0; color: var(--blue-deep); font-size: clamp(24px, 4vw, 40px); }
+  .wii-screen p { margin: 0; max-width: 40ch; line-height: 1.5; }
+  .wii-skip { padding: 10px 26px; }
+
+  /* acima da câmera em tela cheia, para sempre dar para pular */
+  .wii-skip { position: absolute; z-index: 25; top: 28px; right: 28px; }
+
+  /* abertura: o "Wii" vem do fundo e a tela se parte no meio */
+  .wii-splash { position: fixed; inset: 0; z-index: 40; overflow: hidden; }
+  .wii-half { position: absolute; inset: 0; display: grid; place-items: center; background: #fff; animation: wii-open .6s cubic-bezier(.7, 0, .3, 1) 1.8s forwards; }
+  .wii-half.left { clip-path: inset(0 50% 0 0); --open: -50%; }
+  .wii-half.right { clip-path: inset(0 0 0 50%); --open: 50%; }
+  .wii-half span { color: transparent; background: linear-gradient(#34beed 25%, #1a8fc4 75%); -webkit-background-clip: text; background-clip: text; font: 700 clamp(90px, 22vw, 260px)/1 Arial, sans-serif; letter-spacing: -.04em; animation: wii-come .6s cubic-bezier(.2, .9, .3, 1.15) .5s backwards, wii-near .6s ease-in 1.5s forwards; }
+  @media (prefers-reduced-motion: reduce) { .menu, .title .title-card .logo, .title .stripes, .title .title-actions { animation: none; } .wii-btn, .channel { transition: none; } }
+}
+@keyframes menu-in { from { opacity: 0; transform: scale(.97); } }
+/* "sair" usa a mesma fonte do botão da câmera; os dois com vidro Frutiger Aero. */
+.arena .arena-exit, .arena .cam-pip.minimized .pip-toggle { font: 700 11px/1 'M PLUS Rounded 1c', 'Varela Round', 'Nunito', 'Segoe UI', Arial, sans-serif; text-transform: uppercase; }
+.arena .cam-pip.minimized .pip-toggle, .arena-page .arena-exit {
+  border: 2px solid #34beed; color: #0b4f73; text-shadow: 0 1px #fff;
+  background: linear-gradient(#ffffffd9 0 46%, #ffffff00 52%), linear-gradient(#f4fafd, #ade4f8);
+  box-shadow: 0 4px 12px rgba(26, 110, 168, .35), inset 0 1px 1px #fff, inset 0 -6px 10px #34beed55;
+}
+@keyframes title-actions-in { from { opacity: 0; } }
+@keyframes channel-zoom { to { left: 0; top: 0; width: 100%; height: 100%; border-width: 0; border-radius: 0; } }
+@keyframes wii-come { from { opacity: 0; filter: blur(14px); transform: scale(.08); } }
+@keyframes wii-near { to { transform: scale(1.5); } }
+@keyframes wii-open { to { transform: translateX(var(--open)); } }
+
+@keyframes track-pop { 0% { opacity: 0; transform: translateY(12px) scale(.8); } 20% { opacity: 1; transform: none; } 70% { opacity: 1; } 100% { opacity: 0; transform: translateY(-18px); } }
+@keyframes track-flash { from { background: #fa626266; } to { background: transparent; } }
