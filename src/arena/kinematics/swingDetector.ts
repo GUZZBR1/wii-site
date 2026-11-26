@@ -51,6 +51,9 @@ export class SwingDetector {
   private readySince?: number;
 
   update(snapshot: PoseSnapshot, calibration: CalibrationProfile): SwingSignal | undefined {
+    // Sem referência de punho na calibração não há como medir repouso nem mira — o detector
+    // fica mudo em vez de inventar uma referência posturada.
+    if (!calibration.world.readyWristLocal) return undefined;
     const hand = this.hand;
     const wrist = snapshot.worldLandmarks[hand === 'right' ? 16 : 15];
     const shoulder = snapshot.worldLandmarks[hand === 'right' ? 12 : 11];

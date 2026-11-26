@@ -19,8 +19,8 @@ interface Props {
 function guidance(sport: Sport, phase: Props['calibrationPhase'], progress: number): string {
   if (phase === 'framing') {
     return sport === 'track'
-      ? 'Afaste-se até aparecer o corpo inteiro, com os pés visíveis'
-      : 'Afaste-se até aparecer dos ombros aos joelhos, com as mãos visíveis';
+      ? 'Enquadre a cabeça e o torso até o quadril'
+      : 'Enquadre a cabeça e o torso até o quadril, com as mãos visíveis';
   }
   if (phase === 'settling') return 'Isso! Fique parado, em pé';
   if (phase === 'collecting') return `Calibrando… ${Math.round(progress * 100)}%`;

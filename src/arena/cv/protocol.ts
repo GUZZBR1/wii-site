@@ -30,33 +30,19 @@ export interface HandSnapshot {
 }
 
 export interface CalibrationProfile {
-  version: 1;
+  version: 2;
   completedAtMs: number;
-  image: {
-    torsoHeight: number;
-    /**
-     * Standing hip height — the jump baseline. Absent when the legs could not be verified as
-     * extended, because a bent-knee stance stores a low baseline that never re-arms the jump
-     * detector once the player lands upright; jumps then stay disabled instead.
-     */
-    hipY0?: number;
-    kneeToHipY0: { left: number; right: number };
-    shoulderWidth: number;
-  };
   world: {
     shoulderWidth: number;
     /**
-     * Standing vertical captured at calibration from the extended legs (≈ gravity) — the fixed
-     * lean reference, absorbing camera roll/pitch without inheriting the player's habitual trunk
-     * posture or rotating with a lean. Absent when the legs could not be verified; the lane
-     * detector then stays disabled rather than approving a posture-tainted reference, while the
-     * rest of the profile (swings, cadence, jumps) still applies.
+     * Standing vertical captured from verified extended legs when available, otherwise from
+     * the neutral trunk direction. Runtime lean is measured as a delta from the neutral pose.
      */
-    leanUp0?: Point3;
+    leanUp0: Point3;
     /** Lateral trunk lean of the neutral calibration pose; runtime lean is reported as the delta from it. */
     torsoLeanRad0: number;
-    /** Each wrist relative to its shoulder in a body-local frame, normalized by calibrated shoulder width. */
-    readyWristLocal: Record<Hand, Point3>;
+    /** Each wrist relative to its shoulder; absent when a usable wrist reference was not calibrated. */
+    readyWristLocal?: Record<Hand, Point3>;
   };
   quality: { validFrameRatio: number; medianConfidence: number };
 }

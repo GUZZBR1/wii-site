@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { CalibrationProfile, SportActionEvent, VisionMode } from './cv/protocol';
 import { AutoCalibrator, type CalibrationPhase } from './cv/autoCalibrator';
+import { observeEarlyRejection } from './cv/observeEarlyRejection';
 import { PoseClient, type PoseClientCallbacks } from './cv/poseClient';
 import { ActionPipeline } from './kinematics/actionPipeline';
 import { HandCursorDetector } from './kinematics/handCursor';
@@ -124,15 +125,11 @@ export default function ArenaApp({ exit }: { exit: ReactNode }) {
         const current = result.snapshot;
         setTracking(current.trackingState === 'tracked' ? 'TRACKING' : current.trackingState === 'lost' ? 'SEM POSE' : 'PROCURANDO');
         if (!profileRef.current) {
-          const step = calibratorRef.current.update(current, sportRef.current === 'track');
+          const step = calibratorRef.current.update(current, { needsWrists: sportRef.current === 'tennis' });
           profileRef.current = step.profile;
           setCalibrationPhase(step.phase);
           setCalibrationProgress(step.progress);
-          if (step.profile) {
-            setCameraStatus(step.profile.world.leanUp0
-              ? 'Calibração aprovada · postura neutra salva'
-              : 'Calibração parcial · troca de raia e salto desativados · estenda as pernas e enquadre os tornozelos');
-          }
+          if (step.profile) setCameraStatus('Calibração aprovada · postura neutra salva');
         }
         drawPose(overlayRef.current, videoRef.current, current);
         for (const event of result.events) dispatchEvent(event);
@@ -158,7 +155,7 @@ export default function ArenaApp({ exit }: { exit: ReactNode }) {
       const client = clientRef.current;
       const desiredMode = modeForScreen(screenRef.current);
       visionModeRef.current = desiredMode;
-      const visionReady = client.init(callbacks, 'GPU', desiredMode).then(() => client.setMode(desiredMode));
+      const visionReady = observeEarlyRejection(client.init(callbacks, 'GPU', desiredMode).then(() => client.setMode(desiredMode)));
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: false,
         video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30, max: 30 } },
@@ -215,8 +212,9 @@ export default function ArenaApp({ exit }: { exit: ReactNode }) {
     void audioRef.current.unlock();
     setSport(next);
     sportRef.current = next;
-    // Um perfil parcial não tem referência de salto/raia: a corrida refaz a calibração.
-    if (next === 'track' && profileRef.current && !profileRef.current.world.leanUp0) recalibrate();
+    // Um perfil vindo da corrida pode não ter referência de punhos — e sem ela o swing
+    // não dispara: o tênis refaz a calibração pedindo as mãos visíveis.
+    if (next === 'tennis' && profileRef.current && !profileRef.current.world.readyWristLocal) recalibrate();
     setHandPanelOpen(false);
     setScreen('play');
   };
@@ -243,7 +241,7 @@ export default function ArenaApp({ exit }: { exit: ReactNode }) {
     {screen === 'play' && <GameCanvas key={sport} sport={sport} onEngine={onEngine} tracking={tracking} />}
     {screen === 'calibration' && <section className="wii-screen">
       <h1>Calibração do corpo</h1>
-      <p>Permita a câmera, afaste-se até o corpo inteiro aparecer e fique parado.</p>
+      <p>Permita a câmera, enquadre cabeça e torso até o quadril e fique parado.</p>
       <button type="button" className="wii-skip" onClick={skipCalibration}>Pular</button>
     </section>}
     {screen === 'home' && <HomeMenu exit={exit} onGames={() => setScreen('title')} />}

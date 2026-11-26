@@ -3,12 +3,14 @@ import { CadenceTracker } from './cadenceTracker';
 import { JumpDetector } from './jumpDetector';
 import { LaneLeanDetector } from './postureSignals';
 import { SWING_MAX_DURATION_MS, SwingDetector, type SwingSignal } from './swingDetector';
+import { TorsoVerticalChannel } from './torsoVertical';
 import { TrackingGate } from './trackingGate';
 
 export class ActionPipeline {
   private readonly bodyGate = new TrackingGate();
-  private readonly cadenceGate = new TrackingGate([23, 24, 25, 26]);
-  private readonly jumpGate = new TrackingGate([23, 24]);
+  /** One gate and one vertical channel for the torso core: cadence and jump read the same frame's sample. */
+  private readonly torsoGate = new TrackingGate([11, 12, 23, 24]);
+  private readonly torsoChannel = new TorsoVerticalChannel();
   private readonly laneGate = new TrackingGate([11, 12, 23, 24], 'world');
   private readonly cadence = new CadenceTracker();
   private readonly jump = new JumpDetector();
@@ -40,24 +42,26 @@ export class ActionPipeline {
     const events: SportActionEvent[] = [];
     let controls: ContinuousControls = { sprintSpeed01: 0, cadenceSpm: 0, trackingState: 'lost' };
 
-    const cadenceTracking = this.cadenceGate.evaluate(snapshot);
-    controls = { ...controls, trackingState: cadenceTracking.state };
-    if (cadenceTracking.state === 'tracked') {
-      const cadence = this.cadence.update(current, calibration);
+    const torsoTracking = this.torsoGate.evaluate(snapshot);
+    controls = { ...controls, trackingState: torsoTracking.state };
+    if (torsoTracking.state === 'tracked') {
+      const sample = this.torsoChannel.update(current, this.jump.suppressesCadence);
+      const jumped = sample ? this.jump.update(sample) : false;
+      const cadence = this.cadence.update(sample, snapshot.timestampMs, this.jump.suppressesCadence);
       controls = { sprintSpeed01: cadence.speed01, cadenceSpm: cadence.cadenceSpm, trackingState: 'tracked' };
-      const base = this.eventBase(snapshot, cadenceTracking.confidence);
+      const base = this.eventBase(snapshot, torsoTracking.confidence);
       events.push({ ...base, id: this.nextId++, type: 'sprint', speed01: cadence.speed01, cadenceSpm: cadence.cadenceSpm });
       this.sprinting = cadence.speed01 > 0;
       if (cadence.step) events.push({ ...base, id: this.nextId++, type: 'step', side: cadence.step });
+      if (jumped) events.push({ ...base, id: this.nextId++, type: 'jump' });
     } else {
-      events.push(...this.stopSprint(snapshot.timestampMs, cadenceTracking.confidence, cadenceTracking.state));
-      if (cadenceTracking.state === 'lost') this.cadence.reset();
+      events.push(...this.stopSprint(snapshot.timestampMs, torsoTracking.confidence, torsoTracking.state));
+      if (torsoTracking.state === 'lost') {
+        this.cadence.reset();
+        this.jump.reset();
+        this.torsoChannel.reset();
+      }
     }
-
-    const jumpTracking = this.jumpGate.evaluate(snapshot);
-    if (jumpTracking.state === 'tracked') {
-      if (this.jump.update(current, calibration)) events.push({ ...this.eventBase(snapshot, jumpTracking.confidence), id: this.nextId++, type: 'jump' });
-    } else if (jumpTracking.state === 'lost') this.jump.reset();
 
     const laneTracking = this.laneGate.evaluate(snapshot);
     if (laneTracking.state === 'tracked') {
@@ -104,7 +108,7 @@ export class ActionPipeline {
   /** Returns the events the game still needs, such as stopping a sprint in progress. */
   reset(): SportActionEvent[] {
     const stopped = this.stopSprint(performance.now(), 0, 'lost');
-    this.bodyGate.reset(); this.cadenceGate.reset(); this.jumpGate.reset(); this.laneGate.reset(); this.swings.forEach(({ gate }) => { gate.reset(); });
+    this.bodyGate.reset(); this.torsoGate.reset(); this.laneGate.reset(); this.swings.forEach(({ gate }) => { gate.reset(); });
     this.resetDetectors();
     return stopped;
   }
@@ -119,5 +123,5 @@ export class ActionPipeline {
     return { timestampMs: snapshot.timestampMs, confidence, trackingState: 'tracked' as const, source: 'cv' as const };
   }
 
-  private resetDetectors(): void { this.cadence.reset(); this.jump.reset(); this.lean.reset(); this.swings.forEach(({ detector }) => { detector.reset(); }); this.lastSwingAt = Number.NEGATIVE_INFINITY; this.heldSwing = undefined; }
+  private resetDetectors(): void { this.cadence.reset(); this.jump.reset(); this.torsoChannel.reset(); this.lean.reset(); this.swings.forEach(({ detector }) => { detector.reset(); }); this.lastSwingAt = Number.NEGATIVE_INFINITY; this.heldSwing = undefined; }
 }
