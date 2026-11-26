@@ -11,11 +11,17 @@ export const median = (values: readonly number[]): number => {
   return sorted.length % 2 ? sorted[middle]! : (sorted[middle - 1]! + sorted[middle]!) / 2;
 };
 
+export const isFinitePoint = (point: Point3 | undefined): point is Point3 => point !== undefined
+  && Number.isFinite(point.x) && Number.isFinite(point.y) && Number.isFinite(point.z);
+
 export function landmarkConfidence(...points: Point3[]): number {
   if (!points.length) return 0;
   return Math.min(...points.map((point) => {
     const visibility = point.visibility ?? point.presence ?? 0;
     const presence = point.presence ?? point.visibility ?? 0;
-    return Math.min(visibility, presence);
+    const confidence = Math.min(visibility, presence);
+    // NaN/Infinity não é confiança: sem o piso ele atravessava os gates de rejeição `< 0.55`
+    // (comparações com NaN são falsas) e entrava como válido nas medianas da calibração.
+    return Number.isFinite(confidence) ? confidence : 0;
   }));
 }
